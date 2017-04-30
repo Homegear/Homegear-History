@@ -50,8 +50,6 @@ IpcClient::IpcClient() : IQueue(GD::bl.get(), 1, 1000)
 	_binaryRpc = std::unique_ptr<BaseLib::Rpc::BinaryRpc>(new BaseLib::Rpc::BinaryRpc(GD::bl.get()));
 	_rpcDecoder = std::unique_ptr<BaseLib::Rpc::RpcDecoder>(new BaseLib::Rpc::RpcDecoder(GD::bl.get(), false, false));
 	_rpcEncoder = std::unique_ptr<BaseLib::Rpc::RpcEncoder>(new BaseLib::Rpc::RpcEncoder(GD::bl.get(), true));
-
-	_localRpcMethods.insert(std::pair<std::string, std::function<BaseLib::PVariable(BaseLib::PArray& parameters)>>("reload", std::bind(&IpcClient::reload, this, std::placeholders::_1)));
 }
 
 IpcClient::~IpcClient()
@@ -505,39 +503,6 @@ void IpcClient::sendResponse(BaseLib::PVariable& packetId, BaseLib::PVariable& v
 }
 
 // {{{ RPC methods
-BaseLib::PVariable IpcClient::reload(BaseLib::PArray& parameters)
-{
-	try
-	{
-		if(_disposing) return BaseLib::Variable::createError(-1, "Client is disposing.");
-
-		GD::out.printMessage("Info: Reloading log files...");
-
-		if(!std::freopen((GD::bl->settings.logfilePath() + "homegear-history.log").c_str(), "a", stdout))
-		{
-			GD::out.printError("Error: Could not redirect output to new log file.");
-		}
-		if(!std::freopen((GD::bl->settings.logfilePath() + "homegear-history.err").c_str(), "a", stderr))
-		{
-			GD::out.printError("Error: Could not redirect errors to new log file.");
-		}
-
-		return BaseLib::PVariable(new BaseLib::Variable());
-	}
-    catch(const std::exception& ex)
-    {
-    	_out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-    }
-    catch(BaseLib::Exception& ex)
-    {
-    	_out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-    }
-    catch(...)
-    {
-    	_out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
-    }
-    return BaseLib::Variable::createError(-32500, "Unknown application error.");
-}
 // }}}
 
 }
