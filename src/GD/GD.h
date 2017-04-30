@@ -31,6 +31,8 @@
 #ifndef GD_H_
 #define GD_H_
 
+#include "../IpcClient.h"
+
 #include <homegear-base/BaseLib.h>
 
 class GD
@@ -46,6 +48,7 @@ public:
 	static std::string executablePath;
 	static std::string executableFile;
 	static int64_t startingTime;
+	static std::unique_ptr<Ipc::IpcClient> ipcClient;
 
 	virtual ~GD() {}
 private:

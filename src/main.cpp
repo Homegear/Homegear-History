@@ -29,11 +29,14 @@
 */
 
 #include "GD/GD.h"
+
 #include <homegear-base/BaseLib.h>
 
 #include <malloc.h>
 #include <sys/prctl.h> //For function prctl
 #include <sys/sysctl.h> //For BSD systems
+#include <sys/resource.h> //getrlimit, setrlimit
+#include <sys/file.h> //flock
 
 #include <gcrypt.h>
 #include "../config.h"
@@ -76,6 +79,9 @@ void terminate(int32_t signalNumber)
 			GD::bl->shuttingDown = true;
 			_shuttingDownMutex.unlock();
 			_disposing = true;
+			GD::ipcClient->stop();
+			GD::ipcClient->dispose();
+			GD::ipcClient.reset();
 			GD::out.printMessage("(Shutdown) => Shutdown complete.");
 			fclose(stdout);
 			fclose(stderr);
@@ -98,11 +104,11 @@ void terminate(int32_t signalNumber)
 			}
 			_startUpComplete = false;
 			_shuttingDownMutex.unlock();
-			if(!std::freopen((GD::bl->settings.logfilePath() + "homegear.log").c_str(), "a", stdout))
+			if(!std::freopen((GD::bl->settings.logfilePath() + "homegear-history.log").c_str(), "a", stdout))
 			{
 				GD::out.printError("Error: Could not redirect output to new log file.");
 			}
-			if(!std::freopen((GD::bl->settings.logfilePath() + "homegear.err").c_str(), "a", stderr))
+			if(!std::freopen((GD::bl->settings.logfilePath() + "homegear-history.err").c_str(), "a", stderr))
 			{
 				GD::out.printError("Error: Could not redirect errors to new log file.");
 			}
@@ -267,11 +273,11 @@ void startUp()
     	sigaction(SIGABRT, &sa, NULL);
     	sigaction(SIGSEGV, &sa, NULL);
 
-		if(!std::freopen((GD::bl->settings.logfilePath() + "homegear.log").c_str(), "a", stdout))
+		if(!std::freopen((GD::bl->settings.logfilePath() + "homegear-history.log").c_str(), "a", stdout))
 		{
 			GD::out.printError("Error: Could not redirect output to log file.");
 		}
-		if(!std::freopen((GD::bl->settings.logfilePath() + "homegear.err").c_str(), "a", stderr))
+		if(!std::freopen((GD::bl->settings.logfilePath() + "homegear-history.err").c_str(), "a", stderr))
 		{
 			GD::out.printError("Error: Could not redirect errors to log file.");
 		}
@@ -404,6 +410,9 @@ void startUp()
 			GD::out.printWarning("Warning: Time is in the past. Waiting for ntp to set the time...");
 			std::this_thread::sleep_for(std::chrono::milliseconds(10000));
 		}
+
+		GD::ipcClient.reset(new Ipc::IpcClient());
+		GD::ipcClient->start();
 
         GD::out.printMessage("Startup complete.");
 

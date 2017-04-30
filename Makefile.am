@@ -1,3 +1,3 @@
 AUTOMAKE_OPTIONS = foreign
 ACLOCAL_AMFLAGS = -I m4 -I cfg
-SUBDIRS = src homegear-miscellaneous/src
+SUBDIRS = src

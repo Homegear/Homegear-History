@@ -28,16 +28,41 @@
  * files in the program, then also delete it here.
 */
 
-#include "GD.h"
+#ifndef RPCMETHOD_H_
+#define RPCMETHOD_H_
 
-std::unique_ptr<BaseLib::SharedObjects> GD::bl;
-BaseLib::Output GD::out;
-std::string GD::runAsUser = "";
-std::string GD::runAsGroup = "";
-std::string GD::configPath = "/etc/homegear/";
-std::string GD::pidfilePath = "";
-std::string GD::workingDirectory = "";
-std::string GD::executablePath = "";
-std::string GD::executableFile = "";
-int64_t GD::startingTime = BaseLib::HelperFunctions::getTime();
-std::unique_ptr<Ipc::IpcClient> GD::ipcClient;
+#include <vector>
+#include <memory>
+
+#include <homegear-base/BaseLib.h>
+
+namespace Rpc
+{
+
+class RPCMethod
+{
+public:
+	struct ParameterError
+	{
+		enum Enum { noError, wrongCount, wrongType };
+	};
+
+	RPCMethod() {}
+	virtual ~RPCMethod() {}
+
+	ParameterError::Enum checkParameters(std::shared_ptr<std::vector<BaseLib::PVariable>> parameters, std::vector<BaseLib::VariableType> types);
+	ParameterError::Enum checkParameters(std::shared_ptr<std::vector<BaseLib::PVariable>> parameters, std::vector<std::vector<BaseLib::VariableType>> types);
+	virtual BaseLib::PVariable invoke(BaseLib::PRpcClientInfo clientInfo, std::shared_ptr<std::vector<BaseLib::PVariable>> parameters);
+	BaseLib::PVariable getError(ParameterError::Enum error);
+	BaseLib::PVariable getSignature() { return _signatures; }
+	BaseLib::PVariable getHelp() { return _help; }
+protected:
+	BaseLib::PVariable _signatures;
+	BaseLib::PVariable _help;
+
+	void addSignature(BaseLib::VariableType returnType, std::vector<BaseLib::VariableType> parameterTypes);
+	void setHelp(std::string help);
+};
+
+}
+#endif

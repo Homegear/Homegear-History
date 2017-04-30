@@ -4,16 +4,16 @@
  * it under the terms of the GNU Lesser General Public License as
  * published by the Free Software Foundation, either version 3 of the
  * License, or (at your option) any later version.
- * 
+ *
  * Homegear is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public
  * License along with Homegear.  If not, see
  * <http://www.gnu.org/licenses/>.
- * 
+ *
  * In addition, as a special exception, the copyright holders give
  * permission to link the code of portions of this program with the
  * OpenSSL library under certain conditions as described in each
@@ -28,16 +28,29 @@
  * files in the program, then also delete it here.
 */
 
-#include "GD.h"
+#ifndef IPCRESPONSE_H_
+#define IPCRESPONSE_H_
 
-std::unique_ptr<BaseLib::SharedObjects> GD::bl;
-BaseLib::Output GD::out;
-std::string GD::runAsUser = "";
-std::string GD::runAsGroup = "";
-std::string GD::configPath = "/etc/homegear/";
-std::string GD::pidfilePath = "";
-std::string GD::workingDirectory = "";
-std::string GD::executablePath = "";
-std::string GD::executableFile = "";
-int64_t GD::startingTime = BaseLib::HelperFunctions::getTime();
-std::unique_ptr<Ipc::IpcClient> GD::ipcClient;
+#include <homegear-base/BaseLib.h>
+
+namespace Ipc
+{
+
+class IpcResponse
+{
+public:
+	std::atomic_bool finished;
+	int32_t packetId = 0;
+	BaseLib::PVariable response;
+
+	IpcResponse()
+	{
+		finished = false;
+	}
+};
+
+typedef std::shared_ptr<IpcResponse> PIpcResponse;
+
+}
+
+#endif
