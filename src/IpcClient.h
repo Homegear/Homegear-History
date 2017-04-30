@@ -81,7 +81,7 @@ private:
 	std::mutex _requestMutex;
 	std::mutex _waitMutex;
 	std::mutex _rpcResponsesMutex;
-	std::map<int32_t, std::map<int32_t, PIpcResponse>> _rpcResponses;
+	std::map<int64_t, std::map<int32_t, PIpcResponse>> _rpcResponses;
 	std::condition_variable _requestConditionVariable;
 	std::shared_ptr<BaseLib::RpcClientInfo> _dummyClientInfo;
 	std::map<std::string, std::function<BaseLib::PVariable(BaseLib::PArray& parameters)>> _localRpcMethods;
@@ -97,8 +97,7 @@ private:
 
 	void connect();
 	void mainThread();
-	BaseLib::PVariable sendRequest(int32_t scriptId, std::string methodName, BaseLib::PArray& parameters);
-	BaseLib::PVariable sendGlobalRequest(std::string methodName, BaseLib::PArray& parameters);
+	BaseLib::PVariable sendRequest(std::string methodName, BaseLib::PArray& parameters);
 	void sendResponse(BaseLib::PVariable& packetId, BaseLib::PVariable& variable);
 
 	void processQueueEntry(int32_t index, std::shared_ptr<BaseLib::IQueueEntry>& entry);

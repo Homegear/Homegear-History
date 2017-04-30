@@ -405,10 +405,11 @@ BaseLib::PVariable IpcClient::send(std::vector<char>& data)
     return BaseLib::PVariable(new BaseLib::Variable());
 }
 
-BaseLib::PVariable IpcClient::sendRequest(int32_t threadId, std::string methodName, BaseLib::PArray& parameters)
+BaseLib::PVariable IpcClient::sendRequest(std::string methodName, BaseLib::PArray& parameters)
 {
 	try
 	{
+		int64_t threadId = pthread_self();
 		PRequestInfo requestInfo;
 		{
 			std::lock_guard<std::mutex> requestInfoGuard(_requestInfoMutex);
@@ -440,6 +441,7 @@ BaseLib::PVariable IpcClient::sendRequest(int32_t threadId, std::string methodNa
 		{
 			std::lock_guard<std::mutex> responseGuard(_rpcResponsesMutex);
 			_rpcResponses[threadId].erase(packetId);
+			if(_rpcResponses[threadId].empty()) _rpcResponses.erase(threadId);
 			return result;
 		}
 
@@ -458,74 +460,7 @@ BaseLib::PVariable IpcClient::sendRequest(int32_t threadId, std::string methodNa
 		{
 			std::lock_guard<std::mutex> responseGuard(_rpcResponsesMutex);
 			_rpcResponses[threadId].erase(packetId);
-		}
-
-		return result;
-	}
-	catch(const std::exception& ex)
-    {
-    	_out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-    }
-    catch(BaseLib::Exception& ex)
-    {
-    	_out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-    }
-    catch(...)
-    {
-    	_out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
-    }
-    return BaseLib::Variable::createError(-32500, "Unknown application error.");
-}
-
-BaseLib::PVariable IpcClient::sendGlobalRequest(std::string methodName, BaseLib::PArray& parameters)
-{
-	try
-	{
-		std::lock_guard<std::mutex> requestGuard(_requestMutex);
-		int32_t packetId;
-		{
-			std::lock_guard<std::mutex> packetIdGuard(_packetIdMutex);
-			packetId = _currentPacketId++;
-		}
-		BaseLib::PArray array(new BaseLib::Array{ BaseLib::PVariable(new BaseLib::Variable(0)), BaseLib::PVariable(new BaseLib::Variable(packetId)), BaseLib::PVariable(new BaseLib::Variable(parameters)) });
-		std::vector<char> data;
-		_rpcEncoder->encodeRequest(methodName, array, data);
-
-		PIpcResponse response;
-		{
-			std::lock_guard<std::mutex> responseGuard(_rpcResponsesMutex);
-			auto result = _rpcResponses[0].emplace(packetId, std::make_shared<IpcResponse>());
-			if(result.second) response = result.first->second;
-		}
-		if(!response)
-		{
-			_out.printError("Critical: Could not insert response struct into map.");
-			return BaseLib::Variable::createError(-32500, "Unknown application error.");
-		}
-
-		BaseLib::PVariable result = send(data);
-		if(result->errorStruct)
-		{
-			std::lock_guard<std::mutex> responseGuard(_rpcResponsesMutex);
-			_rpcResponses[0].erase(packetId);
-			return result;
-		}
-
-		std::unique_lock<std::mutex> waitLock(_waitMutex);
-		while(!_requestConditionVariable.wait_for(waitLock, std::chrono::milliseconds(10000), [&]{
-			return response->finished || _disposing;
-		}));
-
-		if(!response->finished || response->response->arrayValue->size() != 3 || response->packetId != packetId)
-		{
-			_out.printError("Error: No response received to RPC request. Method: " + methodName);
-			result = BaseLib::Variable::createError(-1, "No response received.");
-		}
-		else result = response->response->arrayValue->at(2);
-
-		{
-			std::lock_guard<std::mutex> responseGuard(_rpcResponsesMutex);
-			_rpcResponses[0].erase(packetId);
+			if(_rpcResponses[threadId].empty()) _rpcResponses.erase(threadId);
 		}
 
 		return result;
