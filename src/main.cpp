@@ -104,11 +104,11 @@ void terminate(int32_t signalNumber)
 			}
 			_startUpComplete = false;
 			_shuttingDownMutex.unlock();
-			if(!std::freopen((GD::bl->settings.logfilePath() + "homegear-history.log").c_str(), "a", stdout))
+			if(!std::freopen((GD::settings.logfilePath() + "homegear-history.log").c_str(), "a", stdout))
 			{
 				GD::out.printError("Error: Could not redirect output to new log file.");
 			}
-			if(!std::freopen((GD::bl->settings.logfilePath() + "homegear-history.err").c_str(), "a", stderr))
+			if(!std::freopen((GD::settings.logfilePath() + "homegear-history.err").c_str(), "a", stderr))
 			{
 				GD::out.printError("Error: Could not redirect errors to new log file.");
 			}
@@ -208,7 +208,7 @@ void initGnuTls()
 			exit(2);
 		}
 		gcry_control(GCRYCTL_SUSPEND_SECMEM_WARN);
-		if((gcryResult = gcry_control(GCRYCTL_INIT_SECMEM, (int)GD::bl->settings.secureMemorySize(), 0)) != GPG_ERR_NO_ERROR)
+		if((gcryResult = gcry_control(GCRYCTL_INIT_SECMEM, (int)GD::settings.secureMemorySize(), 0)) != GPG_ERR_NO_ERROR)
 		{
 			GD::out.printCritical("Critical: Could not allocate secure memory. Error code is: " + std::to_string((int32_t)gcryResult));
 			exit(2);
@@ -228,7 +228,7 @@ void initGnuTls()
 void setLimits()
 {
 	struct rlimit limits;
-	if(!GD::bl->settings.enableCoreDumps()) prctl(PR_SET_DUMPABLE, 0);
+	if(!GD::settings.enableCoreDumps()) prctl(PR_SET_DUMPABLE, 0);
 	else
 	{
 		//Set rlimit for core dumps
@@ -257,9 +257,9 @@ void startUp()
 {
 	try
 	{
-		if((chdir(GD::bl->settings.workingDirectory().c_str())) < 0)
+		if((chdir(GD::settings.workingDirectory().c_str())) < 0)
 		{
-			GD::out.printError("Could not change working directory to " + GD::bl->settings.workingDirectory() + ".");
+			GD::out.printError("Could not change working directory to " + GD::settings.workingDirectory() + ".");
 			exitHomegear(1);
 		}
 
@@ -273,33 +273,33 @@ void startUp()
     	sigaction(SIGABRT, &sa, NULL);
     	sigaction(SIGSEGV, &sa, NULL);
 
-		if(!std::freopen((GD::bl->settings.logfilePath() + "homegear-history.log").c_str(), "a", stdout))
+		if(!std::freopen((GD::settings.logfilePath() + "homegear-history.log").c_str(), "a", stdout))
 		{
 			GD::out.printError("Error: Could not redirect output to log file.");
 		}
-		if(!std::freopen((GD::bl->settings.logfilePath() + "homegear-history.err").c_str(), "a", stderr))
+		if(!std::freopen((GD::settings.logfilePath() + "homegear-history.err").c_str(), "a", stderr))
 		{
 			GD::out.printError("Error: Could not redirect errors to log file.");
 		}
 
     	GD::out.printMessage("Starting Homegear History...");
 
-    	if(GD::bl->settings.memoryDebugging()) mallopt(M_CHECK_ACTION, 3); //Print detailed error message, stack trace, and memory, and abort the program. See: http://man7.org/linux/man-pages/man3/mallopt.3.html
+    	if(GD::settings.memoryDebugging()) mallopt(M_CHECK_ACTION, 3); //Print detailed error message, stack trace, and memory, and abort the program. See: http://man7.org/linux/man-pages/man3/mallopt.3.html
 
     	initGnuTls();
 
-		if(!GD::bl->io.directoryExists(GD::bl->settings.socketPath()))
+		if(!GD::bl->io.directoryExists(GD::settings.socketPath()))
 		{
-			if(!GD::bl->io.createDirectory(GD::bl->settings.socketPath(), S_IRWXU | S_IRWXG))
+			if(!GD::bl->io.createDirectory(GD::settings.socketPath(), S_IRWXU | S_IRWXG))
 			{
-				GD::out.printCritical("Critical: Directory \"" + GD::bl->settings.socketPath() + "\" does not exist and cannot be created.");
+				GD::out.printCritical("Critical: Directory \"" + GD::settings.socketPath() + "\" does not exist and cannot be created.");
 				exit(1);
 			}
 			if(GD::bl->userId != 0 || GD::bl->groupId != 0)
 			{
-				if(chown(GD::bl->settings.socketPath().c_str(), GD::bl->userId, GD::bl->groupId) == -1)
+				if(chown(GD::settings.socketPath().c_str(), GD::bl->userId, GD::bl->groupId) == -1)
 				{
-					GD::out.printCritical("Critical: Could not set permissions on directory \"" + GD::bl->settings.socketPath() + "\"");
+					GD::out.printCritical("Critical: Could not set permissions on directory \"" + GD::settings.socketPath() + "\"");
 					exit(1);
 				}
 			}
@@ -346,7 +346,7 @@ void startUp()
 			}
 
 			//Core dumps are disabled by setuid. Enable them again.
-			if(GD::bl->settings.enableCoreDumps()) prctl(PR_SET_DUMPABLE, 1);
+			if(GD::settings.enableCoreDumps()) prctl(PR_SET_DUMPABLE, 1);
     	}
 
     	if(getuid() == 0)
@@ -411,7 +411,7 @@ void startUp()
 			std::this_thread::sleep_for(std::chrono::milliseconds(10000));
 		}
 
-		GD::ipcClient.reset(new IpcClient(GD::bl->settings.socketPath() + "homegearIPC.sock"));
+		GD::ipcClient.reset(new IpcClient(GD::settings.socketPath() + "homegearIPC.sock"));
 		GD::ipcClient->start();
 
         GD::out.printMessage("Startup complete.");
@@ -427,9 +427,9 @@ void startUp()
 		}
 		_shuttingDownMutex.unlock();
 
-		if(BaseLib::Io::fileExists(GD::bl->settings.workingDirectory() + "core"))
+		if(BaseLib::Io::fileExists(GD::settings.workingDirectory() + "core"))
 		{
-			GD::out.printError("Error: A core file exists in Homegear History's working directory (\"" + GD::bl->settings.workingDirectory() + "core" + "\"). Please send this file to the Homegear team including information about your system (Linux distribution, CPU architecture), the Homegear History version, the current log files and information what might've caused the error.");
+			GD::out.printError("Error: A core file exists in Homegear History's working directory (\"" + GD::settings.workingDirectory() + "core" + "\"). Please send this file to the Homegear team including information about your system (Linux distribution, CPU architecture), the Homegear History version, the current log files and information what might've caused the error.");
 		}
 
        	while(true) std::this_thread::sleep_for(std::chrono::milliseconds(1000));
@@ -548,10 +548,10 @@ int main(int argc, char* argv[])
     	}
 
     	// {{{ Load settings
-			GD::out.printInfo("Loading settings from " + GD::configPath + "main.conf");
-			GD::bl->settings.load(GD::configPath + "main.conf", GD::executablePath);
-			if(GD::runAsUser.empty()) GD::runAsUser = GD::bl->settings.runAsUser();
-			if(GD::runAsGroup.empty()) GD::runAsGroup = GD::bl->settings.runAsGroup();
+			GD::out.printInfo("Loading settings from " + GD::configPath + "history.conf");
+			GD::settings.load(GD::configPath + "history.conf", GD::executablePath);
+			if(GD::runAsUser.empty()) GD::runAsUser = GD::settings.runAsUser();
+			if(GD::runAsGroup.empty()) GD::runAsGroup = GD::settings.runAsGroup();
 			if((!GD::runAsUser.empty() && GD::runAsGroup.empty()) || (!GD::runAsGroup.empty() && GD::runAsUser.empty()))
 			{
 				GD::out.printCritical("Critical: You only provided a user OR a group for Homegear History to run as. Please specify both.");
@@ -566,9 +566,9 @@ int main(int argc, char* argv[])
 			}
 		// }}}
 
-		if((chdir(GD::bl->settings.workingDirectory().c_str())) < 0)
+		if((chdir(GD::settings.workingDirectory().c_str())) < 0)
 		{
-			GD::out.printError("Could not change working directory to " + GD::bl->settings.workingDirectory() + ".");
+			GD::out.printError("Could not change working directory to " + GD::settings.workingDirectory() + ".");
 			exitHomegear(1);
 		}
 
