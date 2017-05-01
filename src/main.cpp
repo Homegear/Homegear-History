@@ -459,7 +459,7 @@ int main(int argc, char* argv[])
 		_shutdownQueued = false;
 
     	getExecutablePath(argc, argv);
-    	GD::bl.reset(new BaseLib::SharedObjects(GD::executablePath, nullptr, false));
+    	GD::bl.reset(new BaseLib::SharedObjects());
     	GD::out.init(GD::bl.get());
 
 		if(BaseLib::Io::directoryExists(GD::executablePath + "config")) GD::configPath = GD::executablePath + "config/";
@@ -549,7 +549,7 @@ int main(int argc, char* argv[])
 
     	// {{{ Load settings
 			GD::out.printInfo("Loading settings from " + GD::configPath + "main.conf");
-			GD::bl->settings.load(GD::configPath + "main.conf");
+			GD::bl->settings.load(GD::configPath + "main.conf", GD::executablePath);
 			if(GD::runAsUser.empty()) GD::runAsUser = GD::bl->settings.runAsUser();
 			if(GD::runAsGroup.empty()) GD::runAsGroup = GD::bl->settings.runAsGroup();
 			if((!GD::runAsUser.empty() && GD::runAsGroup.empty()) || (!GD::runAsGroup.empty() && GD::runAsUser.empty()))
