@@ -47,7 +47,7 @@ void IpcClient::registerRpcMethods()
 		BaseLib::PArray parameters = std::make_shared<BaseLib::Array>();
 		parameters->push_back(std::make_shared<BaseLib::Variable>("historyTest1"));
 		parameters->push_back(std::make_shared<BaseLib::Variable>(BaseLib::VariableType::tArray));
-		BaseLib::PVariable result = sendRequest(methodName, parameters);
+		BaseLib::PVariable result = invoke(methodName, parameters);
 		if (result->errorStruct)
 		{
 			error = true;
@@ -55,7 +55,7 @@ void IpcClient::registerRpcMethods()
 		}
 
 		parameters->at(0)->stringValue = "historyTest2";
-		result = sendRequest(methodName, parameters);
+		result = invoke(methodName, parameters);
 		if (result->errorStruct)
 		{
 			error = true;
