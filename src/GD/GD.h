@@ -48,7 +48,7 @@ public:
 	static std::string executablePath;
 	static std::string executableFile;
 	static int64_t startingTime;
-	static std::unique_ptr<Ipc::IpcClient> ipcClient;
+	static std::unique_ptr<IpcClient> ipcClient;
 
 	virtual ~GD() {}
 private:

@@ -411,7 +411,7 @@ void startUp()
 			std::this_thread::sleep_for(std::chrono::milliseconds(10000));
 		}
 
-		GD::ipcClient.reset(new Ipc::IpcClient());
+		GD::ipcClient.reset(new IpcClient(GD::bl->settings.socketPath() + "homegearIPC.sock"));
 		GD::ipcClient->start();
 
         GD::out.printMessage("Startup complete.");

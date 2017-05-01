@@ -31,76 +31,18 @@
 #ifndef IPCCLIENT_H_
 #define IPCCLIENT_H_
 
-#include "IpcResponse.h"
-#include "RpcMethod.h"
 #include <homegear-base/BaseLib.h>
 
 #include <thread>
 #include <mutex>
 #include <string>
 
-namespace Ipc
+class IpcClient : public BaseLib::Ipc::IIpcClient
 {
-
-class IpcClient : public BaseLib::IQueue {
 public:
-	IpcClient();
-	virtual ~IpcClient();
-	void dispose();
-
-	void start();
-	void stop();
+	IpcClient(std::string socketPath);
 private:
-	struct RequestInfo
-	{
-		std::mutex waitMutex;
-		std::condition_variable conditionVariable;
-	};
-
-	class QueueEntry : public BaseLib::IQueueEntry
-	{
-	public:
-		QueueEntry() {}
-		QueueEntry(std::vector<char>& packet, bool isRequest) { this->packet = packet; this->isRequest = isRequest; }
-		virtual ~QueueEntry() {}
-
-		std::vector<char> packet;
-		bool isRequest = false;
-	};
-
-	std::mutex _disposeMutex;
-	bool _disposing = false;
-	BaseLib::Output _out;
-	std::string _socketPath;
-	std::shared_ptr<BaseLib::FileDescriptor> _fileDescriptor;
-	int64_t _lastGargabeCollection = 0;
-	std::atomic_bool _stopped;
-	std::atomic_bool _closed;
-	std::mutex _sendMutex;
-	std::mutex _rpcResponsesMutex;
-	std::unordered_map<int64_t, std::unordered_map<int32_t, PIpcResponse>> _rpcResponses;
-	std::shared_ptr<BaseLib::RpcClientInfo> _dummyClientInfo;
-	std::map<std::string, std::function<BaseLib::PVariable(BaseLib::PArray& parameters)>> _localRpcMethods;
-	std::thread _mainThread;
-	std::thread _maintenanceThread;
-	std::mutex _requestInfoMutex;
-	std::map<int64_t, RequestInfo> _requestInfo;
-	std::mutex _packetIdMutex;
-	int32_t _currentPacketId = 0;
-
-	std::unique_ptr<BaseLib::Rpc::BinaryRpc> _binaryRpc;
-	std::unique_ptr<BaseLib::Rpc::RpcDecoder> _rpcDecoder;
-	std::unique_ptr<BaseLib::Rpc::RpcEncoder> _rpcEncoder;
-
-	void connect();
-	void mainThread();
-	BaseLib::PVariable sendRequest(std::string methodName, BaseLib::PArray& parameters);
-	void sendResponse(BaseLib::PVariable& packetId, BaseLib::PVariable& variable);
-
-	void processQueueEntry(int32_t index, std::shared_ptr<BaseLib::IQueueEntry>& entry);
-	BaseLib::PVariable send(std::vector<char>& data);
-
-	void registerRpcMethods();
+	virtual void registerRpcMethods();
 
 	// {{{ RPC methods
 	BaseLib::PVariable test1(BaseLib::PArray& parameters);
@@ -108,5 +50,4 @@ private:
 	// }}}
 };
 
-}
 #endif
