@@ -56,7 +56,6 @@ private:
 		std::mutex waitMutex;
 		std::condition_variable conditionVariable;
 	};
-	typedef std::shared_ptr<RequestInfo> PRequestInfo;
 
 	class QueueEntry : public BaseLib::IQueueEntry
 	{
@@ -78,16 +77,14 @@ private:
 	std::atomic_bool _stopped;
 	std::atomic_bool _closed;
 	std::mutex _sendMutex;
-	std::mutex _requestMutex;
-	std::mutex _waitMutex;
 	std::mutex _rpcResponsesMutex;
-	std::map<int64_t, std::map<int32_t, PIpcResponse>> _rpcResponses;
-	std::condition_variable _requestConditionVariable;
+	std::unordered_map<int64_t, std::unordered_map<int32_t, PIpcResponse>> _rpcResponses;
 	std::shared_ptr<BaseLib::RpcClientInfo> _dummyClientInfo;
 	std::map<std::string, std::function<BaseLib::PVariable(BaseLib::PArray& parameters)>> _localRpcMethods;
 	std::thread _mainThread;
+	std::thread _maintenanceThread;
 	std::mutex _requestInfoMutex;
-	std::map<int32_t, PRequestInfo> _requestInfo;
+	std::map<int64_t, RequestInfo> _requestInfo;
 	std::mutex _packetIdMutex;
 	int32_t _currentPacketId = 0;
 
@@ -103,7 +100,11 @@ private:
 	void processQueueEntry(int32_t index, std::shared_ptr<BaseLib::IQueueEntry>& entry);
 	BaseLib::PVariable send(std::vector<char>& data);
 
+	void registerRpcMethods();
+
 	// {{{ RPC methods
+	BaseLib::PVariable test1(BaseLib::PArray& parameters);
+	BaseLib::PVariable test2(BaseLib::PArray& parameters);
 	// }}}
 };
 

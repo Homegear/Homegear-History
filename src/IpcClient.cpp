@@ -50,6 +50,9 @@ IpcClient::IpcClient() : IQueue(GD::bl.get(), 1, 1000)
 	_binaryRpc = std::unique_ptr<BaseLib::Rpc::BinaryRpc>(new BaseLib::Rpc::BinaryRpc(GD::bl.get()));
 	_rpcDecoder = std::unique_ptr<BaseLib::Rpc::RpcDecoder>(new BaseLib::Rpc::RpcDecoder(GD::bl.get(), false, false));
 	_rpcEncoder = std::unique_ptr<BaseLib::Rpc::RpcEncoder>(new BaseLib::Rpc::RpcEncoder(GD::bl.get(), true));
+
+	_localRpcMethods.insert(std::pair<std::string, std::function<BaseLib::PVariable(BaseLib::PArray& parameters)>>("historyTest1", std::bind(&IpcClient::test1, this, std::placeholders::_1)));
+	_localRpcMethods.insert(std::pair<std::string, std::function<BaseLib::PVariable(BaseLib::PArray& parameters)>>("historyTest2", std::bind(&IpcClient::test2, this, std::placeholders::_1)));
 }
 
 IpcClient::~IpcClient()
@@ -88,6 +91,7 @@ void IpcClient::stop()
 		if(_stopped) return;
 		_stopped = true;
 		if(_mainThread.joinable()) _mainThread.join();
+		if (_maintenanceThread.joinable()) _maintenanceThread.join();
 		_closed = true;
 		stopQueue(0);
 	}
@@ -148,6 +152,9 @@ void IpcClient::connect()
 			else break;
 		}
 		_closed = false;
+
+		if (_maintenanceThread.joinable()) _maintenanceThread.join();
+		_maintenanceThread = std::thread(&IpcClient::registerRpcMethods, this);
 
 		if(GD::bl->debugLevel >= 4) _out.printMessage("Connected.");
 	}
@@ -330,7 +337,7 @@ void IpcClient::processQueueEntry(int32_t index, std::shared_ptr<BaseLib::IQueue
 				_out.printError("Error: Response has wrong array size.");
 				return;
 			}
-			int32_t threadId = response->arrayValue->at(0)->integerValue;
+			int64_t threadId = response->arrayValue->at(0)->integerValue64;
 			int32_t packetId = response->arrayValue->at(1)->integerValue;
 
 			{
@@ -347,13 +354,9 @@ void IpcClient::processQueueEntry(int32_t index, std::shared_ptr<BaseLib::IQueue
 					}
 				}
 			}
-			if(threadId != 0)
-			{
-				std::lock_guard<std::mutex> requestInfoGuard(_requestInfoMutex);
-				std::map<int32_t, PRequestInfo>::iterator requestIterator = _requestInfo.find(threadId);
-				if(requestIterator != _requestInfo.end()) requestIterator->second->conditionVariable.notify_all();
-			}
-			else _requestConditionVariable.notify_all();
+			std::lock_guard<std::mutex> requestInfoGuard(_requestInfoMutex);
+			std::map<int64_t, RequestInfo>::iterator requestIterator = _requestInfo.find(threadId);
+			if (requestIterator != _requestInfo.end()) requestIterator->second.conditionVariable.notify_all();
 		}
 	}
 	catch(const std::exception& ex)
@@ -408,11 +411,10 @@ BaseLib::PVariable IpcClient::sendRequest(std::string methodName, BaseLib::PArra
 	try
 	{
 		int64_t threadId = pthread_self();
-		PRequestInfo requestInfo;
-		{
-			std::lock_guard<std::mutex> requestInfoGuard(_requestInfoMutex);
-			requestInfo = _requestInfo[threadId];
-		}
+		std::unique_lock<std::mutex> requestInfoGuard(_requestInfoMutex);
+		RequestInfo& requestInfo = _requestInfo[threadId];
+		requestInfoGuard.unlock();
+
 		int32_t packetId;
 		{
 			std::lock_guard<std::mutex> packetIdGuard(_packetIdMutex);
@@ -439,13 +441,14 @@ BaseLib::PVariable IpcClient::sendRequest(std::string methodName, BaseLib::PArra
 		{
 			std::lock_guard<std::mutex> responseGuard(_rpcResponsesMutex);
 			_rpcResponses[threadId].erase(packetId);
-			if(_rpcResponses[threadId].empty()) _rpcResponses.erase(threadId);
+			if (_rpcResponses[threadId].empty()) _rpcResponses.erase(threadId);
 			return result;
 		}
 
-		std::unique_lock<std::mutex> waitLock(requestInfo->waitMutex);
-		while(!requestInfo->conditionVariable.wait_for(waitLock, std::chrono::milliseconds(10000), [&]{
-			return response->finished || _disposing;
+		std::unique_lock<std::mutex> waitLock(requestInfo.waitMutex);
+		while (!requestInfo.conditionVariable.wait_for(waitLock, std::chrono::milliseconds(10000), [&]
+		{
+			return response->finished || _closed || _stopped || _disposing;
 		}));
 
 		if(!response->finished || response->response->arrayValue->size() != 3 || response->packetId != packetId)
@@ -458,7 +461,7 @@ BaseLib::PVariable IpcClient::sendRequest(std::string methodName, BaseLib::PArra
 		{
 			std::lock_guard<std::mutex> responseGuard(_rpcResponsesMutex);
 			_rpcResponses[threadId].erase(packetId);
-			if(_rpcResponses[threadId].empty()) _rpcResponses.erase(threadId);
+			if (_rpcResponses[threadId].empty()) _rpcResponses.erase(threadId);
 		}
 
 		return result;
@@ -502,7 +505,97 @@ void IpcClient::sendResponse(BaseLib::PVariable& packetId, BaseLib::PVariable& v
     }
 }
 
+void IpcClient::registerRpcMethods()
+{
+	try
+	{
+		bool error = false;
+
+		std::string methodName("registerRpcMethod");
+		BaseLib::PArray parameters = std::make_shared<BaseLib::Array>();
+		parameters->push_back(std::make_shared<BaseLib::Variable>("historyTest1"));
+		parameters->push_back(std::make_shared<BaseLib::Variable>(BaseLib::VariableType::tArray));
+		BaseLib::PVariable result = sendRequest(methodName, parameters);
+		if (result->errorStruct)
+		{
+			error = true;
+			_out.printCritical("Critical: Could not register RPC method test1: " + result->structValue->at("faultString")->stringValue);
+		}
+
+		parameters->at(0)->stringValue = "historyTest2";
+		result = sendRequest(methodName, parameters);
+		if (result->errorStruct)
+		{
+			error = true;
+			_out.printCritical("Critical: Could not register RPC method test2: " + result->structValue->at("faultString")->stringValue);
+		}
+
+		if (!error) _out.printInfo("Info: RPC methods successfully registered.");
+	}
+	catch (const std::exception& ex)
+	{
+		_out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+	}
+	catch (BaseLib::Exception& ex)
+	{
+		_out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+	}
+	catch (...)
+	{
+		_out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
+	}
+}
+
 // {{{ RPC methods
+BaseLib::PVariable IpcClient::test1(BaseLib::PArray& parameters)
+{
+	try
+	{
+		if (_disposing) return BaseLib::Variable::createError(-1, "Client is disposing.");
+
+		_out.printInfo("Test1 called");
+
+		return BaseLib::PVariable(new BaseLib::Variable(std::string("Test1 ") + std::to_string(BaseLib::HelperFunctions::getTimeSeconds())));
+	}
+	catch (const std::exception& ex)
+	{
+		_out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+	}
+	catch (BaseLib::Exception& ex)
+	{
+		_out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+	}
+	catch (...)
+	{
+		_out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
+	}
+	return BaseLib::Variable::createError(-32500, "Unknown application error.");
+}
+
+BaseLib::PVariable IpcClient::test2(BaseLib::PArray& parameters)
+{
+	try
+	{
+		if (_disposing) return BaseLib::Variable::createError(-1, "Client is disposing.");
+
+		_out.printInfo("Test2 called");
+
+		return BaseLib::PVariable(new BaseLib::Variable(std::string("Test2 ") + std::to_string(BaseLib::HelperFunctions::getTimeSeconds())));
+	}
+	catch (const std::exception& ex)
+	{
+		_out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+	}
+	catch (BaseLib::Exception& ex)
+	{
+		_out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+	}
+	catch (...)
+	{
+		_out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
+	}
+	return BaseLib::Variable::createError(-32500, "Unknown application error.");
+}
 // }}}
 
 }
