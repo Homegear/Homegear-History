@@ -45,6 +45,7 @@ void Settings::reset()
 	_workingDirectory = _executablePath;
 	_socketPath = _executablePath;
 	_logfilePath = "/var/log/homegear-history/";
+	_historyPath = "/var/lib/homegear/history";
 	_secureMemorySize = 65536;
 }
 
@@ -147,6 +148,13 @@ void Settings::load(std::string filename, std::string executablePath)
 					if(_logfilePath.empty()) _logfilePath = "/var/log/homegear-history/";
 					if(_logfilePath.back() != '/') _logfilePath.push_back('/');
 					GD::bl->out.printDebug("Debug: logfilePath set to " + _logfilePath);
+				}
+				else if(name == "historypath")
+				{
+					_historyPath = value;
+					if(_historyPath.empty()) _historyPath = "/var/lib/homegear/history/";
+					if(_historyPath.back() != '/') _historyPath.push_back('/');
+					GD::bl->out.printDebug("Debug: historyPath set to " + _historyPath);
 				}
 				else if(name == "securememorysize")
 				{

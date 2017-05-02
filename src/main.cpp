@@ -30,8 +30,6 @@
 
 #include "GD/GD.h"
 
-#include <homegear-base/BaseLib.h>
-
 #include <malloc.h>
 #include <sys/prctl.h> //For function prctl
 #include <sys/sysctl.h> //For BSD systems
@@ -80,8 +78,8 @@ void terminate(int32_t signalNumber)
 			_shuttingDownMutex.unlock();
 			_disposing = true;
 			GD::ipcClient->stop();
-			GD::ipcClient->dispose();
 			GD::ipcClient.reset();
+			GD::history.reset();
 			GD::out.printMessage("(Shutdown) => Shutdown complete.");
 			fclose(stdout);
 			fclose(stderr);
@@ -305,6 +303,23 @@ void startUp()
 			}
 		}
 
+		if(!GD::bl->io.directoryExists(GD::settings.historyPath()))
+		{
+			if(!GD::bl->io.createDirectory(GD::settings.historyPath(), S_IRWXU | S_IRWXG))
+			{
+				GD::out.printCritical("Critical: Directory \"" + GD::settings.historyPath() + "\" does not exist and cannot be created.");
+				exit(1);
+			}
+			if(GD::bl->userId != 0 || GD::bl->groupId != 0)
+			{
+				if(chown(GD::settings.historyPath().c_str(), GD::bl->userId, GD::bl->groupId) == -1)
+				{
+					GD::out.printCritical("Critical: Could not set permissions on directory \"" + GD::settings.historyPath() + "\"");
+					exit(1);
+				}
+			}
+		}
+
 		setLimits();
 
     	if(getuid() == 0 && !GD::runAsUser.empty() && !GD::runAsGroup.empty())
@@ -410,6 +425,8 @@ void startUp()
 			GD::out.printWarning("Warning: Time is in the past. Waiting for ntp to set the time...");
 			std::this_thread::sleep_for(std::chrono::milliseconds(10000));
 		}
+
+		GD::history.reset(new History());
 
 		GD::ipcClient.reset(new IpcClient(GD::settings.socketPath() + "homegearIPC.sock"));
 		GD::ipcClient->start();

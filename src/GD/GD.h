@@ -32,6 +32,7 @@
 #define GD_H_
 
 #include "../IpcClient.h"
+#include "../History.h"
 #include "../Settings.h"
 
 #include <homegear-base/BaseLib.h>
@@ -50,6 +51,7 @@ public:
 	static std::string executableFile;
 	static int64_t startingTime;
 	static std::unique_ptr<IpcClient> ipcClient;
+	static std::unique_ptr<History> history;
 	static Settings settings;
 
 	virtual ~GD() {}

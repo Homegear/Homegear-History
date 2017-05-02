@@ -49,6 +49,7 @@ public:
 	std::string workingDirectory() { return _workingDirectory; }
 	std::string socketPath() { return _socketPath; }
 	std::string logfilePath() { return _logfilePath; }
+	std::string historyPath() { return _historyPath; }
 	uint32_t secureMemorySize() { return _secureMemorySize; }
 private:
 	std::string _executablePath;
@@ -63,6 +64,7 @@ private:
 	std::string _workingDirectory;
 	std::string _socketPath;
 	std::string _logfilePath;
+	std::string _historyPath;
 	uint32_t _secureMemorySize = 65536;
 
 	void reset();

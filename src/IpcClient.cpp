@@ -37,7 +37,7 @@ IpcClient::IpcClient(std::string socketPath) : IIpcClient(GD::bl.get(), socketPa
 	_localRpcMethods.emplace("historyTest2", std::bind(&IpcClient::test2, this, std::placeholders::_1));
 }
 
-void IpcClient::registerRpcMethods()
+void IpcClient::onConnect()
 {
 	try
 	{
@@ -62,7 +62,11 @@ void IpcClient::registerRpcMethods()
 			_out.printCritical("Critical: Could not register RPC method test2: " + result->structValue->at("faultString")->stringValue);
 		}
 
-		if (!error) _out.printInfo("Info: RPC methods successfully registered.");
+		if (error) return;
+
+		_out.printInfo("Info: RPC methods successfully registered.");
+
+		GD::history->load();
 	}
 	catch (const std::exception& ex)
 	{
