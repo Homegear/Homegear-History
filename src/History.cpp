@@ -61,6 +61,7 @@ void History::load()
 
 			_variables[idIterator->second->integerValue64][channelIterator->second->integerValue].emplace(variableIterator->second->stringValue);
 
+			std::string type;
 			uint32_t sampleInterval = 300;
 			uint32_t heartbeat = 86400;
 			uint32_t aggregatedValuesDay = 1;
@@ -69,56 +70,58 @@ void History::load()
 			uint32_t aggregatedValuesYear = 72;
 			uint32_t years = 1;
 
-			auto parameterIterator = rrdIterator->second->structValue->find("INTERVAL");
+			auto parameterIterator = rrdIterator->second->structValue->find("TYPE");
+			if(parameterIterator != rrdIterator->second->structValue->end())
+			{
+				type = parameterIterator->second->stringValue;
+				if(type.empty()) type = "GAUGE";
+			}
+
+			parameterIterator = rrdIterator->second->structValue->find("INTERVAL");
 			if(parameterIterator != rrdIterator->second->structValue->end())
 			{
 				sampleInterval = parameterIterator->second->integerValue;
 				if(sampleInterval == 0) sampleInterval = 1;
 			}
 
-			auto parameterIterator = rrdIterator->second->structValue->find("HEARTBEAT");
+			parameterIterator = rrdIterator->second->structValue->find("HEARTBEAT");
 			if(parameterIterator != rrdIterator->second->structValue->end())
 			{
 				heartbeat = parameterIterator->second->integerValue;
 				if(heartbeat == 0) sampleInterval = 1;
 			}
 
-			auto parameterIterator = rrdIterator->second->structValue->find("AGGREGATED_VALUES_DAY");
+			parameterIterator = rrdIterator->second->structValue->find("AGGREGATED_VALUES_DAY");
 			if(parameterIterator != rrdIterator->second->structValue->end())
 			{
 				aggregatedValuesDay = parameterIterator->second->integerValue;
-				if(aggregatedValuesDay == 0) aggregatedValuesDay = 1;
 			}
 
-			auto parameterIterator = rrdIterator->second->structValue->find("AGGREGATED_VALUES_WEEK");
+			parameterIterator = rrdIterator->second->structValue->find("AGGREGATED_VALUES_WEEK");
 			if(parameterIterator != rrdIterator->second->structValue->end())
 			{
 				aggregatedValuesWeek = parameterIterator->second->integerValue;
-				if(aggregatedValuesWeek == 0) aggregatedValuesWeek = 1;
 			}
 
-			auto parameterIterator = rrdIterator->second->structValue->find("AGGREGATED_VALUES_MONTH");
+			parameterIterator = rrdIterator->second->structValue->find("AGGREGATED_VALUES_MONTH");
 			if(parameterIterator != rrdIterator->second->structValue->end())
 			{
 				aggregatedValuesMonth = parameterIterator->second->integerValue;
-				if(aggregatedValuesMonth == 0) aggregatedValuesMonth = 1;
 			}
 
-			auto parameterIterator = rrdIterator->second->structValue->find("AGGREGATED_VALUES_YEAR");
+			parameterIterator = rrdIterator->second->structValue->find("AGGREGATED_VALUES_YEAR");
 			if(parameterIterator != rrdIterator->second->structValue->end())
 			{
 				aggregatedValuesYear = parameterIterator->second->integerValue;
-				if(aggregatedValuesYear == 0) aggregatedValuesYear = 1;
 			}
 
-			auto parameterIterator = rrdIterator->second->structValue->find("YEARS");
+			parameterIterator = rrdIterator->second->structValue->find("YEARS");
 			if(parameterIterator != rrdIterator->second->structValue->end())
 			{
 				years = parameterIterator->second->integerValue;
-				if(years == 0) years = 1;
 			}
 
-			createRrdFile(idIterator->second->integerValue64, channelIterator->second->integerValue, variableIterator->second->stringValue, sampleInterval, heartbeat, aggregatedValuesDay, aggregatedValuesWeek, aggregatedValuesMonth, aggregatedValuesYear, years);
+			createRrdFile(idIterator->second->integerValue64, channelIterator->second->integerValue, variableIterator->second->stringValue, type, sampleInterval, heartbeat, aggregatedValuesDay, aggregatedValuesWeek, aggregatedValuesMonth, aggregatedValuesYear, years);
 		}
 	}
 	catch (const std::exception& ex)
@@ -135,52 +138,124 @@ void History::load()
 	}
 }
 
-void History::createRrdFile(uint64_t peerId, int32_t channel, std::string variable, uint32_t sampleInterval, uint32_t heartbeat, uint32_t aggregatedValuesDay, uint32_t aggregatedValuesWeek, uint32_t aggregatedValuesMonth, uint32_t aggregatedValuesYear, uint32_t years)
+void History::createRrdFile(uint64_t peerId, int32_t channel, std::string variable, std::string type, uint32_t sampleInterval, uint32_t heartbeat, uint32_t aggregatedValuesDay, uint32_t aggregatedValuesWeek, uint32_t aggregatedValuesMonth, uint32_t aggregatedValuesYear, uint32_t years)
 {
 	try
 	{
-		uint32_t rowsDay = 86400 / (aggregatedValuesDay * sampleInterval);
-		uint32_t rowsWeek = 604800 / (aggregatedValuesWeek * sampleInterval);
-		uint32_t rowsMonth = 2678400 / (aggregatedValuesMonth * sampleInterval);
-		uint32_t rowsYear = 31622400 / (aggregatedValuesYear * sampleInterval) * years;
+		std::string filename = std::to_string(peerId) + '.' + std::to_string(channel) + '.' + variable + ".rrd";
+		BaseLib::HelperFunctions::stripNonAlphaNumeric(filename);
+		filename = GD::settings.historyPath() + filename;
+		if(GD::bl->io.fileExists(filename)) return;
+
+		if(aggregatedValuesDay == aggregatedValuesWeek || aggregatedValuesDay == aggregatedValuesMonth || aggregatedValuesDay == aggregatedValuesYear) aggregatedValuesDay = 0;
+		if(aggregatedValuesWeek == aggregatedValuesMonth || aggregatedValuesWeek == aggregatedValuesYear) aggregatedValuesWeek = 0;
+		if(aggregatedValuesMonth == aggregatedValuesYear) aggregatedValuesMonth = 0;
+
+		uint32_t rowsDay = 0;
+		if(aggregatedValuesDay != 0) rowsDay = 86400 / (aggregatedValuesDay * sampleInterval);
+		uint32_t rowsWeek = 0;
+		if(aggregatedValuesWeek != 0) rowsWeek = 604800 / (aggregatedValuesWeek * sampleInterval);
+		uint32_t rowsMonth = 0;
+		if(aggregatedValuesMonth != 0) rowsMonth = 2678400 / (aggregatedValuesMonth * sampleInterval);
+		uint32_t rowsYear = 0;
+		if(aggregatedValuesYear != 0 && years != 0) rowsYear = 31622400 / (aggregatedValuesYear * sampleInterval) * years;
 
 		//We need: Sample interval, heartbeat, (data source type), values per day, per week, per month, per year
 		std::vector<char*> rrdParameters;
 		rrdParameters.reserve(18);
 		rrdParameters.push_back((char*)"create"); //Source: PHP module source code. Value doesn't seem to matter.
-		std::string filename = std::to_string(peerId) + '.' + std::to_string(channel) + '.' + variable + ".rrd";
-		BaseLib::HelperFunctions::stripNonAlphaNumeric(filename);
-		filename = GD::settings.historyPath() + filename;
 		rrdParameters.push_back((char*)filename.data());
 		std::string step = "--step=" + std::to_string(sampleInterval);
 		rrdParameters.push_back((char*)step.data());
 		rrdParameters.push_back((char*)"--no-overwrite");
-		std::string dataSource = "DS:" + (variable.size() > 19 ? variable.substr(0, 19) : variable) + ":GAUGE:" + std::to_string(heartbeat) + ":U:U";
+		std::string dataSource = "DS:" + (variable.size() > 19 ? variable.substr(0, 19) : variable) + ":" + type + ":" + std::to_string(heartbeat) + ":U:U";
 		rrdParameters.push_back((char*)dataSource.data());
-		std::string averageDay = "RRA:AVERAGE:0.5:" + std::to_string(aggregatedValuesDay) + ':' + std::to_string(rowsDay);
-		rrdParameters.push_back((char*)averageDay.data());
-		std::string averageWeek = "RRA:AVERAGE:0.5:" + std::to_string(aggregatedValuesWeek) + ':' + std::to_string(rowsWeek);
-		rrdParameters.push_back((char*)averageWeek.data());
-		std::string averageMonth = "RRA:AVERAGE:0.5:" + std::to_string(aggregatedValuesMonth) + ':' + std::to_string(rowsMonth);
-		rrdParameters.push_back((char*)averageMonth.data());
-		std::string averageYear = "RRA:AVERAGE:0.5:" + std::to_string(aggregatedValuesYear) + ':' + std::to_string(rowsYear);
-		rrdParameters.push_back((char*)averageYear.data());
-		std::string maxDay = "RRA:MAX:0.5:" + std::to_string(aggregatedValuesDay) + ':' + std::to_string(rowsDay);
-		rrdParameters.push_back((char*)maxDay.data());
-		std::string maxWeek = "RRA:MAX:0.5:" + std::to_string(aggregatedValuesWeek) + ':' + std::to_string(rowsWeek);
-		rrdParameters.push_back((char*)maxWeek.data());
-		std::string maxMonth = "RRA:MAX:0.5:" + std::to_string(aggregatedValuesMonth) + ':' + std::to_string(rowsMonth);
-		rrdParameters.push_back((char*)maxMonth.data());
-		std::string maxYear = "RRA:MAX:0.5:" + std::to_string(aggregatedValuesYear) + ':' + std::to_string(rowsYear);
-		rrdParameters.push_back((char*)maxYear.data());
-		std::string minDay = "RRA:MIN:0.5:" + std::to_string(aggregatedValuesDay) + ':' + std::to_string(rowsDay);
-		rrdParameters.push_back((char*)minDay.data());
-		std::string minWeek = "RRA:MIN:0.5:" + std::to_string(aggregatedValuesWeek) + ':' + std::to_string(rowsWeek);
-		rrdParameters.push_back((char*)minWeek.data());
-		std::string minMonth = "RRA:MIN:0.5:" + std::to_string(aggregatedValuesMonth) + ':' + std::to_string(rowsMonth);
-		rrdParameters.push_back((char*)minMonth.data());
-		std::string minYear = "RRA:MIN:0.5:" + std::to_string(aggregatedValuesYear) + ':' + std::to_string(rowsYear);
-		rrdParameters.push_back((char*)minYear.data());
+		if(type == "ABSOLUTE")
+		{
+			if(aggregatedValuesDay != 0)
+			{
+				std::string averageDay = "RRA:MAX:0.5:" + std::to_string(aggregatedValuesDay) + ':' + std::to_string(rowsDay);
+				rrdParameters.push_back((char*)averageDay.data());
+			}
+			if(aggregatedValuesWeek != 0)
+			{
+				std::string averageWeek = "RRA:MAX:0.5:" + std::to_string(aggregatedValuesWeek) + ':' + std::to_string(rowsWeek);
+				rrdParameters.push_back((char*)averageWeek.data());
+			}
+			if(aggregatedValuesMonth != 0)
+			{
+				std::string averageMonth = "RRA:MAX:0.5:" + std::to_string(aggregatedValuesMonth) + ':' + std::to_string(rowsMonth);
+				rrdParameters.push_back((char*)averageMonth.data());
+			}
+			if(aggregatedValuesYear != 0 && years != 0)
+			{
+				std::string averageYear = "RRA:MAX:0.5:" + std::to_string(aggregatedValuesYear) + ':' + std::to_string(rowsYear);
+				rrdParameters.push_back((char*)averageYear.data());
+			}
+		}
+		else
+		{
+			if(aggregatedValuesDay != 0)
+			{
+				std::string averageDay = "RRA:AVERAGE:0.5:" + std::to_string(aggregatedValuesDay) + ':' + std::to_string(rowsDay);
+				rrdParameters.push_back((char*)averageDay.data());
+			}
+			if(aggregatedValuesWeek != 0)
+			{
+				std::string averageWeek = "RRA:AVERAGE:0.5:" + std::to_string(aggregatedValuesWeek) + ':' + std::to_string(rowsWeek);
+				rrdParameters.push_back((char*)averageWeek.data());
+			}
+			if(aggregatedValuesMonth != 0)
+			{
+				std::string averageMonth = "RRA:AVERAGE:0.5:" + std::to_string(aggregatedValuesMonth) + ':' + std::to_string(rowsMonth);
+				rrdParameters.push_back((char*)averageMonth.data());
+			}
+			if(aggregatedValuesYear != 0 && years != 0)
+			{
+				std::string averageYear = "RRA:AVERAGE:0.5:" + std::to_string(aggregatedValuesYear) + ':' + std::to_string(rowsYear);
+				rrdParameters.push_back((char*)averageYear.data());
+			}
+			if(aggregatedValuesDay != 0)
+			{
+				std::string maxDay = "RRA:MAX:0.5:" + std::to_string(aggregatedValuesDay) + ':' + std::to_string(rowsDay);
+				rrdParameters.push_back((char*)maxDay.data());
+			}
+			if(aggregatedValuesWeek != 0)
+			{
+				std::string maxWeek = "RRA:MAX:0.5:" + std::to_string(aggregatedValuesWeek) + ':' + std::to_string(rowsWeek);
+				rrdParameters.push_back((char*)maxWeek.data());
+			}
+			if(aggregatedValuesMonth != 0)
+			{
+				std::string maxMonth = "RRA:MAX:0.5:" + std::to_string(aggregatedValuesMonth) + ':' + std::to_string(rowsMonth);
+				rrdParameters.push_back((char*)maxMonth.data());
+			}
+			if(aggregatedValuesYear != 0 && years != 0)
+			{
+				std::string maxYear = "RRA:MAX:0.5:" + std::to_string(aggregatedValuesYear) + ':' + std::to_string(rowsYear);
+				rrdParameters.push_back((char*)maxYear.data());
+			}
+			if(aggregatedValuesDay != 0)
+			{
+				std::string minDay = "RRA:MIN:0.5:" + std::to_string(aggregatedValuesDay) + ':' + std::to_string(rowsDay);
+				rrdParameters.push_back((char*)minDay.data());
+			}
+			if(aggregatedValuesWeek != 0)
+			{
+				std::string minWeek = "RRA:MIN:0.5:" + std::to_string(aggregatedValuesWeek) + ':' + std::to_string(rowsWeek);
+				rrdParameters.push_back((char*)minWeek.data());
+			}
+			if(aggregatedValuesMonth != 0)
+			{
+				std::string minMonth = "RRA:MIN:0.5:" + std::to_string(aggregatedValuesMonth) + ':' + std::to_string(rowsMonth);
+				rrdParameters.push_back((char*)minMonth.data());
+			}
+			if(aggregatedValuesYear != 0 && years != 0)
+			{
+				std::string minYear = "RRA:MIN:0.5:" + std::to_string(aggregatedValuesYear) + ':' + std::to_string(rowsYear);
+				rrdParameters.push_back((char*)minYear.data());
+			}
+		}
 		rrdParameters.push_back(0); //Probably unnecessary
 		int result = rrd_create(rrdParameters.size() - 1, rrdParameters.data());
 		if(result == -1) GD::out.printError("Error: Could not create RRD file \"" + filename + "\": " + std::string(rrd_get_error()));

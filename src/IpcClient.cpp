@@ -4,16 +4,16 @@
  * it under the terms of the GNU Lesser General Public License as
  * published by the Free Software Foundation, either version 3 of the
  * License, or (at your option) any later version.
- * 
+ *
  * Homegear is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public
  * License along with Homegear.  If not, see
  * <http://www.gnu.org/licenses/>.
- * 
+ *
  * In addition, as a special exception, the copyright holders give
  * permission to link the code of portions of this program with the
  * OpenSSL library under certain conditions as described in each
@@ -33,8 +33,7 @@
 
 IpcClient::IpcClient(std::string socketPath) : IIpcClient(GD::bl.get(), socketPath)
 {
-	_localRpcMethods.emplace("historyTest1", std::bind(&IpcClient::test1, this, std::placeholders::_1));
-	_localRpcMethods.emplace("historyTest2", std::bind(&IpcClient::test2, this, std::placeholders::_1));
+	_localRpcMethods.emplace("historySetLogging", std::bind(&IpcClient::setLogging, this, std::placeholders::_1));
 }
 
 void IpcClient::onConnect()
@@ -83,40 +82,12 @@ void IpcClient::onConnect()
 }
 
 // {{{ RPC methods
-BaseLib::PVariable IpcClient::test1(BaseLib::PArray& parameters)
+BaseLib::PVariable IpcClient::setLogging(BaseLib::PArray& parameters)
 {
 	try
 	{
-		if (_disposing) return BaseLib::Variable::createError(-1, "Client is disposing.");
 
-		_out.printInfo("Test1 called");
-
-		return BaseLib::PVariable(new BaseLib::Variable(std::string("Test1 ") + std::to_string(BaseLib::HelperFunctions::getTimeSeconds())));
-	}
-	catch (const std::exception& ex)
-	{
-		_out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-	}
-	catch (BaseLib::Exception& ex)
-	{
-		_out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
-	}
-	catch (...)
-	{
-		_out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
-	}
-	return BaseLib::Variable::createError(-32500, "Unknown application error.");
-}
-
-BaseLib::PVariable IpcClient::test2(BaseLib::PArray& parameters)
-{
-	try
-	{
-		if (_disposing) return BaseLib::Variable::createError(-1, "Client is disposing.");
-
-		_out.printInfo("Test2 called");
-
-		return BaseLib::PVariable(new BaseLib::Variable(std::string("Test2 ") + std::to_string(BaseLib::HelperFunctions::getTimeSeconds())));
+		return std::make_shared<BaseLib::Variable>();
 	}
 	catch (const std::exception& ex)
 	{
