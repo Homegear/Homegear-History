@@ -80,6 +80,7 @@ void terminate(int signalNumber)
 			GD::ipcClient->stop();
 			GD::ipcClient.reset();
 			GD::history.reset();
+			GD::db.reset();
 			GD::out.printMessage("(Shutdown) => Shutdown complete.");
 			fclose(stdout);
 			fclose(stderr);
