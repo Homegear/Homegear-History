@@ -51,6 +51,12 @@ public:
 	std::string logfilePath() { return _logfilePath; }
 	std::string historyPath() { return _historyPath; }
 	uint32_t secureMemorySize() { return _secureMemorySize; }
+	bool databaseSynchronous() { return _databaseSynchronous; }
+	bool databaseMemoryJournal() { return _databaseMemoryJournal; }
+	bool databaseWALJournal() { return _databaseWALJournal; }
+	std::string databasePath() { return _databasePath; }
+	std::string databaseBackupPath() { return _databaseBackupPath; }
+	uint32_t databaseMaxBackups() { return _databaseMaxBackups; }
 private:
 	std::string _executablePath;
 	std::string _path;
@@ -66,6 +72,12 @@ private:
 	std::string _logfilePath;
 	std::string _historyPath;
 	uint32_t _secureMemorySize = 65536;
+	bool _databaseSynchronous = true;
+	bool _databaseMemoryJournal = false;
+	bool _databaseWALJournal = true;
+	std::string _databasePath;
+	std::string _databaseBackupPath;
+	uint32_t _databaseMaxBackups = 2;
 
 	void reset();
 };

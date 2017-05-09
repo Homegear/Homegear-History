@@ -51,9 +51,6 @@ private:
 
 	std::mutex _variablesMutex;
 	Peers _variables;
-	std::set<std::string> _knownRrdDsTypes{ "GAUGE", "COUNTER", "DCOUNTER", "DERIVE", "DDERIVE", "ABSOLUTE" };
-
-	void createRrdFile(uint64_t peerId, int32_t channel, std::string variable, std::string type, uint32_t sampleInterval, uint32_t heartbeat, uint32_t aggregatedValuesDay, uint32_t aggregatedValuesWeek, uint32_t aggregatedValuesMonth, uint32_t aggregatedValuesYear, uint32_t years);
 };
 
 #endif

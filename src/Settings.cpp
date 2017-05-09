@@ -47,6 +47,12 @@ void Settings::reset()
 	_logfilePath = "/var/log/homegear-history/";
 	_historyPath = "/var/lib/homegear/history";
 	_secureMemorySize = 65536;
+	_databaseSynchronous = true;
+	_databaseMemoryJournal = false;
+	_databaseWALJournal = true;
+	_databasePath = "";
+	_databaseBackupPath = "";
+	_databaseMaxBackups = 2;
 }
 
 bool Settings::changed()
@@ -162,6 +168,39 @@ void Settings::load(std::string filename, std::string executablePath)
 					//Allow 0 => disable secure memory. 16384 is minimum size. Values smaller than 16384 are set to 16384 by gcrypt: https://gnupg.org/documentation/manuals/gcrypt-devel/Controlling-the-library.html
 					if(_secureMemorySize < 0) _secureMemorySize = 1;
 					GD::bl->out.printDebug("Debug: secureMemorySize set to " + std::to_string(_secureMemorySize));
+				}
+				else if(name == "databasesynchronous")
+				{
+					if(BaseLib::HelperFunctions::toLower(value) == "false") _databaseSynchronous = false;
+					GD::bl->out.printDebug("Debug: databaseSynchronous set to " + std::to_string(_databaseSynchronous));
+				}
+				else if(name == "databasememoryjournal")
+				{
+					if(BaseLib::HelperFunctions::toLower(value) == "true") _databaseMemoryJournal = true;
+					GD::bl->out.printDebug("Debug: databaseMemoryJournal set to " + std::to_string(_databaseMemoryJournal));
+				}
+				else if(name == "databasewaljournal")
+				{
+					if(BaseLib::HelperFunctions::toLower(value) == "false") _databaseWALJournal = false;
+					GD::bl->out.printDebug("Debug: databaseWALJournal set to " + std::to_string(_databaseWALJournal));
+				}
+				else if(name == "databasepath")
+				{
+					_databasePath = value;
+					if(!_databasePath.empty() && _databasePath.back() != '/') _databasePath.push_back('/');
+					GD::bl->out.printDebug("Debug: databasePath set to " + _databasePath);
+				}
+				else if(name == "databasebackuppath")
+				{
+					_databaseBackupPath = value;
+					if(!_databaseBackupPath.empty() && _databaseBackupPath.back() != '/') _databaseBackupPath.push_back('/');
+					GD::bl->out.printDebug("Debug: databaseBackupPath set to " + _databaseBackupPath);
+				}
+				else if(name == "databasemaxbackups")
+				{
+					_databaseMaxBackups = BaseLib::Math::getNumber(value);
+					if(_databaseMaxBackups > 10000) _databaseMaxBackups = 10000;
+					GD::bl->out.printDebug("Debug: databaseMaxBackups set to " + std::to_string(_databaseMaxBackups));
 				}
 				else
 				{

@@ -323,6 +323,14 @@ void startUp()
 
 		setLimits();
 
+		GD::db.reset(new Database(GD::bl.get()));
+		std::string databasePath = GD::settings.databasePath();
+		if(databasePath.empty()) databasePath = GD::executablePath;
+		std::string databaseBackupPath = GD::settings.databaseBackupPath();
+		if(databaseBackupPath.empty()) databaseBackupPath = GD::executablePath;
+    	GD::db->open(databasePath, "history.sql", GD::settings.databaseSynchronous(), GD::settings.databaseMemoryJournal(), GD::settings.databaseWALJournal(), databaseBackupPath, "history.sql.bak");
+    	if(!GD::db->isOpen()) exitHomegear(1);
+
     	if(getuid() == 0 && !GD::runAsUser.empty() && !GD::runAsGroup.empty())
     	{
 			if(GD::bl->userId == 0 || GD::bl->groupId == 0)

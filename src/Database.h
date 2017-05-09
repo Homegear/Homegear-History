@@ -28,19 +28,41 @@
  * files in the program, then also delete it here.
 */
 
-#include "GD.h"
+#ifndef DATABASECONTROLLER_H_
+#define DATABASECONTROLLER_H_
 
-std::unique_ptr<BaseLib::SharedObjects> GD::bl;
-BaseLib::Output GD::out;
-std::string GD::runAsUser = "";
-std::string GD::runAsGroup = "";
-std::string GD::configPath = "/etc/homegear/";
-std::string GD::pidfilePath = "";
-std::string GD::workingDirectory = "";
-std::string GD::executablePath = "";
-std::string GD::executableFile = "";
-int64_t GD::startingTime = BaseLib::HelperFunctions::getTime();
-std::unique_ptr<IpcClient> GD::ipcClient;
-std::unique_ptr<Database> GD::db;
-std::unique_ptr<History> GD::history;
-Settings GD::settings;
+#include "homegear-base/BaseLib.h"
+#include "SQLite3.h"
+
+class Database : public BaseLib::IQueue
+{
+public:
+	class QueueEntry : public BaseLib::IQueueEntry
+	{
+	public:
+		QueueEntry(std::string command, BaseLib::Database::DataRow& data) { _entry = std::make_shared<std::pair<std::string, BaseLib::Database::DataRow>>(command, data); };
+		virtual ~QueueEntry() {};
+		std::shared_ptr<std::pair<std::string, BaseLib::Database::DataRow>>& getEntry() { return _entry; }
+	private:
+		std::shared_ptr<std::pair<std::string, BaseLib::Database::DataRow>> _entry;
+	};
+
+	Database(BaseLib::SharedObjects* bl);
+	virtual ~Database();
+
+	// {{{ General
+		void open(std::string databasePath, std::string databaseFilename, bool databaseSynchronous, bool databaseMemoryJournal, bool databaseWALJournal, std::string backupPath = "", std::string backupFilename = "");
+		void hotBackup();
+		bool isOpen() { return _db.isOpen(); }
+		void createSavepointSynchronous(std::string& name);
+		void releaseSavepointSynchronous(std::string& name);
+		void createSavepointAsynchronous(std::string& name);
+		void releaseSavepointAsynchronous(std::string& name);
+	// }}}
+protected:
+	SQLite3 _db;
+
+	virtual void processQueueEntry(int32_t index, std::shared_ptr<BaseLib::IQueueEntry>& entry);
+};
+
+#endif
