@@ -31,7 +31,7 @@
 #include "IpcClient.h"
 #include "GD/GD.h"
 
-IpcClient::IpcClient(std::string socketPath) : IIpcClient(GD::bl.get(), socketPath)
+IpcClient::IpcClient(std::string socketPath) : IIpcClient(socketPath)
 {
 	_localRpcMethods.emplace("historySetLogging", std::bind(&IpcClient::setLogging, this, std::placeholders::_1));
 }
@@ -43,14 +43,14 @@ void IpcClient::onConnect()
 		bool error = false;
 
 		std::string methodName("registerRpcMethod");
-		BaseLib::PArray parameters = std::make_shared<BaseLib::Array>();
-		parameters->push_back(std::make_shared<BaseLib::Variable>("historyTest1"));
-		parameters->push_back(std::make_shared<BaseLib::Variable>(BaseLib::VariableType::tArray));
-		BaseLib::PVariable result = invoke(methodName, parameters);
+		Ipc::PArray parameters = std::make_shared<Ipc::Array>();
+		parameters->push_back(std::make_shared<Ipc::Variable>("historyTest1"));
+		parameters->push_back(std::make_shared<Ipc::Variable>(Ipc::VariableType::tArray));
+		Ipc::PVariable result = invoke(methodName, parameters);
 		if (result->errorStruct)
 		{
 			error = true;
-			_out.printCritical("Critical: Could not register RPC method test1: " + result->structValue->at("faultString")->stringValue);
+			GD::out.printCritical("Critical: Could not register RPC method test1: " + result->structValue->at("faultString")->stringValue);
 		}
 
 		parameters->at(0)->stringValue = "historyTest2";
@@ -58,49 +58,49 @@ void IpcClient::onConnect()
 		if (result->errorStruct)
 		{
 			error = true;
-			_out.printCritical("Critical: Could not register RPC method test2: " + result->structValue->at("faultString")->stringValue);
+			GD::out.printCritical("Critical: Could not register RPC method test2: " + result->structValue->at("faultString")->stringValue);
 		}
 
 		if (error) return;
 
-		_out.printInfo("Info: RPC methods successfully registered.");
+		GD::out.printInfo("Info: RPC methods successfully registered.");
 
 		GD::history->load();
 	}
 	catch (const std::exception& ex)
 	{
-		_out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
 	}
-	catch (BaseLib::Exception& ex)
+	catch (Ipc::IpcException& ex)
 	{
-		_out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
 	}
 	catch (...)
 	{
-		_out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
+		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
 	}
 }
 
 // {{{ RPC methods
-BaseLib::PVariable IpcClient::setLogging(BaseLib::PArray& parameters)
+Ipc::PVariable IpcClient::setLogging(Ipc::PArray& parameters)
 {
 	try
 	{
 
-		return std::make_shared<BaseLib::Variable>();
+		return std::make_shared<Ipc::Variable>();
 	}
 	catch (const std::exception& ex)
 	{
-		_out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
 	}
-	catch (BaseLib::Exception& ex)
+	catch (Ipc::IpcException& ex)
 	{
-		_out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
 	}
 	catch (...)
 	{
-		_out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
+		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
 	}
-	return BaseLib::Variable::createError(-32500, "Unknown application error.");
+	return Ipc::Variable::createError(-32500, "Unknown application error.");
 }
 // }}}

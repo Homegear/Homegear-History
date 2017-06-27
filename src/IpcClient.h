@@ -31,13 +31,13 @@
 #ifndef IPCCLIENT_H_
 #define IPCCLIENT_H_
 
-#include <homegear-base/BaseLib.h>
+#include <homegear-ipc/IIpcClient.h>
 
 #include <thread>
 #include <mutex>
 #include <string>
 
-class IpcClient : public BaseLib::Ipc::IIpcClient
+class IpcClient : public Ipc::IIpcClient
 {
 public:
 	IpcClient(std::string socketPath);
@@ -45,7 +45,7 @@ private:
 	virtual void onConnect();
 
 	// {{{ RPC methods
-	BaseLib::PVariable setLogging(BaseLib::PArray& parameters);
+	Ipc::PVariable setLogging(Ipc::PArray& parameters);
 	// }}}
 };
 

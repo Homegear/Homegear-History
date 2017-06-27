@@ -33,7 +33,7 @@
 
 Database::Database(BaseLib::SharedObjects* bl) : IQueue(bl, 1, 100000)
 {
-	startQueue(0, 1, 0, SCHED_OTHER);
+	startQueue(0, false, 1, 0, SCHED_OTHER);
 }
 
 Database::~Database()

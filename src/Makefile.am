@@ -5,7 +5,7 @@ AM_LDFLAGS = -Wl,-rpath=/lib/homegear -Wl,-rpath=/usr/lib/homegear -Wl,-rpath=/u
 
 bin_PROGRAMS = homegear-history
 homegear_history_SOURCES = main.cpp Database.cpp History.cpp IpcClient.cpp Settings.cpp SQLite3.cpp GD/GD.cpp
-homegear_history_LDADD = -lpthread -lgcrypt -lgnutls -lhomegear-base -lgpg-error -lsqlite3
+homegear_history_LDADD = -lpthread -lgcrypt -lgnutls -lhomegear-base -lhomegear-ipc -lgpg-error -lsqlite3
 
 if BSDSYSTEM
 else
