@@ -33,8 +33,6 @@
 
 #include <homegear-base/BaseLib.h>
 
-#include <rrd.h>
-
 class History
 {
 public:
