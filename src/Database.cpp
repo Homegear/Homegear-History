@@ -91,3 +91,20 @@ Database::~Database()
 	}
 //}}}
 
+//{{{ History
+	void Database::deleteVariableTable(uint64_t peerId, int32_t channel, std::string variable)
+	{
+		std::string tableName = "history" + std::to_string(peerId) + "." + std::to_string(channel) + "." + variable;
+
+		_db.executeCommand("DROP INDEX IF EXISTS " + tableName + "Index");
+		_db.executeCommand("DROP TABLE IF EXISTS " + tableName);
+	}
+
+	void Database::createVariableTable(uint64_t peerId, int32_t channel, std::string variable)
+	{
+		std::string tableName = "history" + std::to_string(peerId) + "." + std::to_string(channel) + "." + variable;
+
+		_db.executeCommand("CREATE TABLE IF NOT EXISTS " + tableName + " (time INTEGER NOT NULL, integerValue INTEGER, floatValue REAL, binaryValue BLOB)");
+		_db.executeCommand("CREATE INDEX IF NOT EXISTS " + tableName + "Index ON " + tableName + " (time)");
+	}
+//}}}

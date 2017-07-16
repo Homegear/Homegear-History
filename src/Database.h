@@ -59,6 +59,11 @@ public:
 		void createSavepointAsynchronous(std::string& name);
 		void releaseSavepointAsynchronous(std::string& name);
 	// }}}
+
+	// {{{ History
+		void deleteVariableTable(uint64_t peerId, int32_t channel, std::string variable);
+		void createVariableTable(uint64_t peerId, int32_t channel, std::string variable);
+	// }}}
 protected:
 	SQLite3 _db;
 

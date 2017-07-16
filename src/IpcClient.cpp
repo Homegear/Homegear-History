@@ -42,23 +42,24 @@ void IpcClient::onConnect()
 	{
 		bool error = false;
 
-		std::string methodName("registerRpcMethod");
 		Ipc::PArray parameters = std::make_shared<Ipc::Array>();
-		parameters->push_back(std::make_shared<Ipc::Variable>("historyTest1"));
-		parameters->push_back(std::make_shared<Ipc::Variable>(Ipc::VariableType::tArray));
-		Ipc::PVariable result = invoke(methodName, parameters);
-		if (result->errorStruct)
-		{
-			error = true;
-			GD::out.printCritical("Critical: Could not register RPC method test1: " + result->structValue->at("faultString")->stringValue);
-		}
+		parameters->reserve(2);
 
-		parameters->at(0)->stringValue = "historyTest2";
-		result = invoke(methodName, parameters);
+		parameters->push_back(std::make_shared<Ipc::Variable>("historySetLogging"));
+		parameters->push_back(std::make_shared<Ipc::Variable>(Ipc::VariableType::tArray)); //Outer array
+		Ipc::PVariable signature = std::make_shared<Ipc::Variable>(Ipc::VariableType::tArray); //Inner array (= signature)
+		signature->arrayValue->push_back(std::make_shared<Ipc::Variable>(Ipc::VariableType::tVoid)); //Return value
+		signature->arrayValue->push_back(std::make_shared<Ipc::Variable>(Ipc::VariableType::tInteger64)); //1st parameter
+		signature->arrayValue->push_back(std::make_shared<Ipc::Variable>(Ipc::VariableType::tInteger64)); //2nd parameter
+		signature->arrayValue->push_back(std::make_shared<Ipc::Variable>(Ipc::VariableType::tString)); //3rd parameter
+		signature->arrayValue->push_back(std::make_shared<Ipc::Variable>(Ipc::VariableType::tBoolean)); //4th parameter
+		parameters->back()->arrayValue->push_back(signature);
+
+		Ipc::PVariable result = invoke("registerRpcMethod", parameters);
 		if (result->errorStruct)
 		{
 			error = true;
-			GD::out.printCritical("Critical: Could not register RPC method test2: " + result->structValue->at("faultString")->stringValue);
+			Ipc::Output::printCritical("Critical: Could not register RPC method historySetLogging: " + result->structValue->at("faultString")->stringValue);
 		}
 
 		if (error) return;
@@ -86,6 +87,12 @@ Ipc::PVariable IpcClient::setLogging(Ipc::PArray& parameters)
 {
 	try
 	{
+		if(parameters->size() != 4) return Ipc::Variable::createError(-1, "Wrong parameter count.");
+		if(parameters->at(0)->type != Ipc::VariableType::tInteger || parameters->at(0)->type != Ipc::VariableType::tInteger64) return Ipc::Variable::createError(-1, "Parameter 1 is not of type integer.");
+		if(parameters->at(1)->type != Ipc::VariableType::tInteger || parameters->at(1)->type != Ipc::VariableType::tInteger64) return Ipc::Variable::createError(-1, "Parameter 2 is not of type integer.");
+		if(parameters->at(2)->type != Ipc::VariableType::tString) return Ipc::Variable::createError(-1, "Parameter 3 is not of type string.");
+		if(parameters->at(2)->stringValue.empty()) return Ipc::Variable::createError(-1, "Parameter 3 is an empty string.");
+		if(parameters->at(3)->type != Ipc::VariableType::tBoolean) return Ipc::Variable::createError(-1, "Parameter 4 is not of type boolean.");
 
 		return std::make_shared<Ipc::Variable>();
 	}
