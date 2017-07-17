@@ -34,6 +34,7 @@
 IpcClient::IpcClient(std::string socketPath) : IIpcClient(socketPath)
 {
 	_localRpcMethods.emplace("historySetLogging", std::bind(&IpcClient::setLogging, this, std::placeholders::_1));
+	_localRpcMethods.emplace("broadcastEvent", std::bind(&IpcClient::broadcastEvent, this, std::placeholders::_1));
 }
 
 void IpcClient::onConnect()
@@ -66,7 +67,39 @@ void IpcClient::onConnect()
 
 		GD::out.printInfo("Info: RPC methods successfully registered.");
 
-		GD::history->load();
+		load();
+	}
+	catch (const std::exception& ex)
+	{
+		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+	}
+	catch (Ipc::IpcException& ex)
+	{
+		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+	}
+	catch (...)
+	{
+		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
+	}
+}
+
+void IpcClient::load()
+{
+	try
+	{
+		std::lock_guard<std::mutex> variablesGuard(_variablesMutex);
+		std::unordered_map<uint64_t, std::unordered_map<int32_t, std::set<std::string>>> variables = GD::db->getVariables();
+
+		for(auto& peer : variables)
+		{
+			for(auto& channel : peer.second)
+			{
+				for(auto& variable : channel.second)
+				{
+					_variables[peer.first][channel.first].emplace(variable);
+				}
+			}
+		}
 	}
 	catch (const std::exception& ex)
 	{
@@ -88,11 +121,34 @@ Ipc::PVariable IpcClient::setLogging(Ipc::PArray& parameters)
 	try
 	{
 		if(parameters->size() != 4) return Ipc::Variable::createError(-1, "Wrong parameter count.");
-		if(parameters->at(0)->type != Ipc::VariableType::tInteger || parameters->at(0)->type != Ipc::VariableType::tInteger64) return Ipc::Variable::createError(-1, "Parameter 1 is not of type integer.");
-		if(parameters->at(1)->type != Ipc::VariableType::tInteger || parameters->at(1)->type != Ipc::VariableType::tInteger64) return Ipc::Variable::createError(-1, "Parameter 2 is not of type integer.");
+		if(parameters->at(0)->type != Ipc::VariableType::tInteger && parameters->at(0)->type != Ipc::VariableType::tInteger64) return Ipc::Variable::createError(-1, "Parameter 1 is not of type integer.");
+		if(parameters->at(1)->type != Ipc::VariableType::tInteger && parameters->at(1)->type != Ipc::VariableType::tInteger64) return Ipc::Variable::createError(-1, "Parameter 2 is not of type integer.");
 		if(parameters->at(2)->type != Ipc::VariableType::tString) return Ipc::Variable::createError(-1, "Parameter 3 is not of type string.");
 		if(parameters->at(2)->stringValue.empty()) return Ipc::Variable::createError(-1, "Parameter 3 is an empty string.");
 		if(parameters->at(3)->type != Ipc::VariableType::tBoolean) return Ipc::Variable::createError(-1, "Parameter 4 is not of type boolean.");
+
+		if(parameters->at(3)->booleanValue)
+		{
+			GD::db->createVariableTable(parameters->at(0)->integerValue64, parameters->at(1)->integerValue64, parameters->at(2)->stringValue);
+			std::lock_guard<std::mutex> variablesGuard(_variablesMutex);
+			_variables[parameters->at(0)->integerValue64][parameters->at(1)->integerValue64].emplace(parameters->at(2)->stringValue);
+		}
+		else
+		{
+			GD::db->deleteVariableTable(parameters->at(0)->integerValue64, parameters->at(1)->integerValue64, parameters->at(2)->stringValue);
+			std::lock_guard<std::mutex> variablesGuard(_variablesMutex);
+			auto variablesIterator = _variables.find(parameters->at(0)->integerValue64);
+			if(variablesIterator != _variables.end())
+			{
+				auto channelsIterator = variablesIterator->second.find(parameters->at(1)->integerValue64);
+				if(channelsIterator != variablesIterator->second.end())
+				{
+					channelsIterator->second.erase(parameters->at(2)->stringValue);
+					if(channelsIterator->second.empty()) variablesIterator->second.erase(channelsIterator);
+				}
+				if(variablesIterator->second.empty()) _variables.erase(variablesIterator);
+			}
+		}
 
 		return std::make_shared<Ipc::Variable>();
 	}
@@ -109,5 +165,46 @@ Ipc::PVariable IpcClient::setLogging(Ipc::PArray& parameters)
 		GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
 	}
 	return Ipc::Variable::createError(-32500, "Unknown application error.");
+}
+
+Ipc::PVariable IpcClient::broadcastEvent(Ipc::PArray& parameters)
+{
+	try
+	{
+		if(parameters->size() != 4) return Ipc::Variable::createError(-1, "Wrong parameter count.");
+
+		std::lock_guard<std::mutex> variablesGuard(_variablesMutex);
+		auto variablesIterator = _variables.find(parameters->at(0)->integerValue64);
+		if(variablesIterator != _variables.end())
+		{
+			auto channelsIterator = variablesIterator->second.find(parameters->at(1)->integerValue64);
+			if(channelsIterator != variablesIterator->second.end())
+			{
+				for(uint32_t i = 0; i < parameters->at(2)->arrayValue->size(); ++i)
+				{
+					auto variableIterator = channelsIterator->second.find(parameters->at(2)->arrayValue->at(i)->stringValue);
+					if(variableIterator != channelsIterator->second.end())
+					{
+						GD::db->saveValue(parameters->at(0)->integerValue64, parameters->at(1)->integerValue64, parameters->at(2)->arrayValue->at(i)->stringValue, parameters->at(3)->arrayValue->at(i));
+					}
+				}
+			}
+		}
+
+		return std::make_shared<Ipc::Variable>();
+	}
+    catch(const std::exception& ex)
+    {
+    	GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    }
+    catch(BaseLib::Exception& ex)
+    {
+    	GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__, ex.what());
+    }
+    catch(...)
+    {
+    	GD::out.printEx(__FILE__, __LINE__, __PRETTY_FUNCTION__);
+    }
+    return Ipc::Variable::createError(-32500, "Unknown application error.");
 }
 // }}}

@@ -36,16 +36,31 @@
 #include <thread>
 #include <mutex>
 #include <string>
+#include <set>
 
 class IpcClient : public Ipc::IIpcClient
 {
 public:
 	IpcClient(std::string socketPath);
 private:
+	typedef std::string VariableName;
+	typedef int32_t Channel;
+	typedef uint64_t PeerId;
+	typedef std::set<VariableName> Variables;
+	typedef std::unordered_map<Channel, Variables> Channels;
+	typedef std::unordered_map<PeerId, Channels> Peers;
+
+	std::mutex _variablesMutex;
+	Peers _variables;
+
 	virtual void onConnect();
+
+	void load();
 
 	// {{{ RPC methods
 	Ipc::PVariable setLogging(Ipc::PArray& parameters);
+
+	Ipc::PVariable broadcastEvent(Ipc::PArray& parameters);
 	// }}}
 };
 

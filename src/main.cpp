@@ -79,7 +79,6 @@ void terminate(int signalNumber)
 			_disposing = true;
 			GD::ipcClient->stop();
 			GD::ipcClient.reset();
-			GD::history.reset();
 			GD::db.reset();
 			GD::out.printMessage("(Shutdown) => Shutdown complete.");
 			fclose(stdout);
@@ -326,9 +325,9 @@ void startUp()
 
 		GD::db.reset(new Database(GD::bl.get()));
 		std::string databasePath = GD::settings.databasePath();
-		if(databasePath.empty()) databasePath = GD::executablePath;
+		if(databasePath.empty()) databasePath = GD::settings.historyPath();
 		std::string databaseBackupPath = GD::settings.databaseBackupPath();
-		if(databaseBackupPath.empty()) databaseBackupPath = GD::executablePath;
+		if(databaseBackupPath.empty()) databaseBackupPath = GD::settings.historyPath();
     	GD::db->open(databasePath, "history.sql", GD::settings.databaseSynchronous(), GD::settings.databaseMemoryJournal(), GD::settings.databaseWALJournal(), databaseBackupPath, "history.sql.bak");
     	if(!GD::db->isOpen()) exitHomegear(1);
 
@@ -435,8 +434,6 @@ void startUp()
 			GD::out.printWarning("Warning: Time is in the past. Waiting for ntp to set the time...");
 			std::this_thread::sleep_for(std::chrono::milliseconds(10000));
 		}
-
-		GD::history.reset(new History());
 
 		GD::ipcClient.reset(new IpcClient(GD::settings.socketPath() + "homegearIPC.sock"));
 		GD::ipcClient->start();

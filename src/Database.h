@@ -4,16 +4,16 @@
  * it under the terms of the GNU Lesser General Public License as
  * published by the Free Software Foundation, either version 3 of the
  * License, or (at your option) any later version.
- * 
+ *
  * Homegear is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public
  * License along with Homegear.  If not, see
  * <http://www.gnu.org/licenses/>.
- * 
+ *
  * In addition, as a special exception, the copyright holders give
  * permission to link the code of portions of this program with the
  * OpenSSL library under certain conditions as described in each
@@ -32,6 +32,9 @@
 #define DATABASECONTROLLER_H_
 
 #include "homegear-base/BaseLib.h"
+#include "homegear-ipc/Variable.h"
+#include "homegear-ipc/RpcDecoder.h"
+#include "homegear-ipc/RpcEncoder.h"
 #include "SQLite3.h"
 
 class Database : public BaseLib::IQueue
@@ -61,12 +64,18 @@ public:
 	// }}}
 
 	// {{{ History
+		std::unordered_map<uint64_t, std::unordered_map<int32_t, std::set<std::string>>> getVariables();
 		void deleteVariableTable(uint64_t peerId, int32_t channel, std::string variable);
 		void createVariableTable(uint64_t peerId, int32_t channel, std::string variable);
+		void saveValue(uint64_t peerId, int32_t channel, std::string& variable, Ipc::PVariable value);
 	// }}}
 protected:
 	SQLite3 _db;
+	std::unique_ptr<Ipc::RpcDecoder> _rpcDecoder;
+	std::unique_ptr<Ipc::RpcEncoder> _rpcEncoder;
 
+	std::string getTableName(uint64_t peerId, int32_t channel, std::string& variable);
+	std::string stripNonAlphaNumeric(const std::string& s);
 	virtual void processQueueEntry(int32_t index, std::shared_ptr<BaseLib::IQueueEntry>& entry);
 };
 
